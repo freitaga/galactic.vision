@@ -1,5 +1,17 @@
 <template>
   <div class="quorum">
+    <v-app-bar app clipped-left>
+      <v-app-bar-nav-icon @click.stop="drawer = !drawer"></v-app-bar-nav-icon>
+      <v-toolbar-title>
+      <a href="/" class="nav-gv">
+        <img height="40" width="40" src="assets/icon.png" style="margin-right: 1em">
+        Galactic Vision
+      </a>
+      </v-toolbar-title>
+      <router-link class="app-link ml-3" to="/explorer">Activity</router-link>
+			<router-link class="app-link" to="/nodes">Nodes</router-link>
+			<router-link class="app-link" to="/quorum">Quorum</router-link>
+    </v-app-bar>
     <!-- <div id="quorum">
       <div class="quorum-nav">
         <div id="node_list" class="list-group">
@@ -28,14 +40,14 @@
     <!-- <v-card
       class="mx-auto quorum-nav"
     > -->
-      <v-navigation-drawer app clipped>
+      <v-navigation-drawer v-model="drawer" app clipped class="nav-drawer">
         <v-card class="pa-3">
           <v-select v-model="currMode" :items="modes" label="Mode"></v-select>
           <v-list-item>
             <v-list-item-content>
               <v-row class="align-center" style="text-overflow: ellipsis; max-width:250px;">
                 <v-col cols="2">
-                  <v-btn v-if="nodeView" v-on:click="toggleNodeView()" icon color="cyan">
+                  <v-btn v-if="nodeView" v-on:click="viewAll" icon color="cyan">
                     <v-icon>mdi-chevron-left</v-icon>
                   </v-btn>
                 </v-col>
@@ -54,6 +66,15 @@
           <v-divider></v-divider>
 
           <div v-if="currMode == 'Nodes'">
+            <v-list-item
+              link
+              v-on:click="viewAll"
+              v-if="!nodeView"
+            >
+              <v-list-item-content>
+                <v-list-item-title>View All</v-list-item-title>
+              </v-list-item-content>
+            </v-list-item>
             <v-list
               v-if="!nodeView"
               dense
@@ -149,6 +170,7 @@ export default {
   name: "Quorum",
   components: {},
   data: () => ({
+    drawer: false,
     imgArray: [
       // "./assets/planet_textures/Wetlands-Clouds-EQUIRECTANGULAR-1-1024x512.png",
       "./assets/2k_uranus.jpg",
@@ -215,9 +237,16 @@ export default {
     quorumSets: [],
     currMode: "Nodes",
     modes: ["Nodes", /*"Quorum Sets"*/],
-    quorumView: false
+    quorumView: false,
+    orgLinks: [],
+    defaultCameraPos: null,
+    isMobile: false
   }),
   mounted: function() {
+    if(window.innerWidth < 768) {
+      this.isMobile = true;
+    }
+
     var rR;
     var rG;
     var rB;
@@ -502,14 +531,14 @@ export default {
       //fill in node side bar
       this.nodes = orgNodes;
 
-      let orgLinks = this.generateOrgLinks(orgNodes);
+      this.orgLinks = this.generateOrgLinks(orgNodes);
 
       this.generateQuorumSets();
 
 
       this.gData = {
         nodes: orgNodes,
-        links: orgLinks
+        links: this.orgLinks
       };
 
       var material;
@@ -522,7 +551,7 @@ export default {
       }
 
       var reflectionCube = new THREE.CubeTextureLoader()
-      .setPath("images/quorum_skybox/")
+      .setPath("assets/quorum_skybox/")
       .load(["px.png", "nx.png", "py.png", "ny.png", "pz.png", "nz.png"]);
 
       reflectionCube.format = THREE.RGBFormat;
@@ -536,7 +565,8 @@ export default {
       .nodeLabel(node => `${node.name ? node.name : node.publicKey}`)
       .linkCurvature("curvature")
       // .linkCurveRotation('rotation')
-      .linkDirectionalParticleWidth(8)
+      .linkDirectionalParticles(2)
+      .linkDirectionalParticleWidth(16)
       // .linkOpacity(0.5)
       .nodeRelSize(5)
       .nodeThreeObject(
@@ -558,6 +588,16 @@ export default {
       this.Graph.onNodeDragEnd(() => this.Graph.cooldownTicks(0))
 
       this.Graph.scene().background = reflectionCube;
+
+      this.Graph.cameraPosition(
+        { x: 5000, y: 5000, z: 5000 }, // new position
+        { x: 0, y: 0, z: 0 }, // lookAt ({ x, y, z })
+        3000 // ms transition duration
+      );
+
+      this.defaultCameraPos = this.Graph.camera().position;
+
+      console.log(this.defaultCameraPos);
 
       //set forces
       //Graph
@@ -676,9 +716,9 @@ export default {
 
             //label quorum set groups of nodes
 
-            console.log(quorumSet);
+            // console.log(quorumSet);
       
-            console.log("printing duplicate test result", duplicate);
+            // console.log("printing duplicate test result", duplicate);
 
             if(!duplicate) {
 
@@ -754,13 +794,17 @@ export default {
 
       this.Graph.linkVisibility(link => this.shouldShowLink(link, node));
       // Aim at node from outside it
-      const distance = 1750;
+      const distance = 5000;
       const distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z);
       this.Graph.cameraPosition(
         { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio }, // new position
         node, // lookAt ({ x, y, z })
         3000 // ms transition duration
       );
+
+      if(this.isMobile) {
+        this.drawer = false;
+      }
     },
     enterQuorumView: function(set) {
       console.log(set);
@@ -781,8 +825,14 @@ export default {
     //     .jsonUrl('https://raw.githubusercontent.com/vasturiano/3d-force-graph/master/example/datasets/blocks.json')
     // },
     viewAll: function() {
-      app.gData.links = app.links;
-      app.Graph.linkVisibility(true);
+      this.gData.links = this.orgLinks;
+      this.Graph.linkVisibility(true);
+      this.Graph.cameraPosition(
+        { x: 5000, y: 5000, z: 5000 }, // new position
+        this.nodes[0], // lookAt ({ x, y, z })
+        3000 // ms transition duration
+      );
+      this.nodeView = !this.nodeView;
     },
     addValidators: function() {
       var validator_node;
@@ -893,5 +943,17 @@ export default {
     height: 100%;
     width: 250px;
     z-index: 2;
+  }
+
+  .nav-drawer {
+    width: 100%;
+
+    @media only screen and (min-width: 768px) {
+      width: 300px;
+    }
+
+    @media only screen and (min-width: 1200px) {
+      width: 400px;
+    }
   }
 </style>

@@ -1,103 +1,188 @@
 <template>
   <div id="app">
-    <v-navigation-drawer app clipped>
-        <v-card class="pa-3">
-          <v-select v-model="currMode" :items="modes" label="Mode"></v-select>
-          <v-list-item>
+    <v-app-bar app clipped-left>
+      <v-app-bar-nav-icon @click.stop="drawer = !drawer"></v-app-bar-nav-icon>
+      <v-toolbar-title>
+      <a href="/" class="nav-gv">
+        <img height="40" width="40" src="assets/icon.png" style="margin-right: 1em">
+        Galactic Vision
+      </a>
+      </v-toolbar-title>
+      <router-link class="app-link ml-3" to="/explorer">Activity</router-link>
+			<router-link class="app-link" to="/nodes">Nodes</router-link>
+			<router-link class="app-link" to="/quorum">Quorum</router-link>
+    </v-app-bar>
+    <!-- <Loader></Loader> -->
+    <v-navigation-drawer v-model="drawer" v-if="!is_loading" app clipped class="nav-drawer" width="450">
+      <!-- <v-row> -->
+        <v-col cols="12" style="padding: 0;">
+          <v-card class="pa-3">
+            <!-- <v-select v-model="currMode" :items="modes" label="Mode"></v-select> -->
+            <v-list-item>
+              <v-list-item-content>
+                <v-row class="align-center" style="text-overflow: ellipsis; max-width: 400px;">
+                  <v-col cols="2">
+                    <v-btn v-if="nodeView" v-on:click="toggleNodeView()" icon color="cyan">
+                      <v-icon>mdi-chevron-left</v-icon>
+                    </v-btn>
+                  </v-col>
+                  <v-col cols="10">
+                    <v-list-item-title class="title">
+                      {{ nodeView ? (this.currNode.name ? this.currNode.name : this.currNode.publicKey) : 'Nodes' }}
+                    </v-list-item-title>
+                  </v-col>
+                </v-row>
+                <!-- <v-list-item-subtitle>
+                  subtext
+                </v-list-item-subtitle> -->
+              </v-list-item-content>
+            </v-list-item>
+
+            <v-divider></v-divider>
+
+            <div>
+              <v-list
+                v-if="!nodeView"
+                dense
+                nav
+              >
+                <v-list-item
+                  link
+                  v-on:click="viewAll"
+                >
+                  <v-list-item-content>
+                    <v-list-item-title>View All</v-list-item-title>
+                  </v-list-item-content>
+                </v-list-item>
+                <v-list-item
+                  v-for="node in nodes"
+                  :key="node.publicKey"
+                  link
+                  v-on:click="setupTween(node)"
+                >
+                  <v-list-item-content>
+                    <v-list-item-title>{{ node.name ? node.name : node.publicKey }}</v-list-item-title>
+                  </v-list-item-content>
+                </v-list-item>
+              </v-list>
+            </div>
+
+            <v-row v-if="nodeView">
+              <v-col cols="6">
+                 <v-list>
+                  <v-list-item two-line>
+                    <v-list-item-content>
+                      <v-list-item-title>Country</v-list-item-title>
+                      <v-list-item-subtitle style="color: cyan">{{this.currNode.geoData.countryName}}</v-list-item-subtitle>
+                    </v-list-item-content>
+                  </v-list-item>
+                  <v-list-item two-line>
+                    <v-list-item-content>
+                      <v-list-item-title>Status</v-list-item-title>
+                      <v-list-item-subtitle style="color: cyan">{{ this.currNode.active ? 'Active' : 'Offline' }}</v-list-item-subtitle>
+                    </v-list-item-content>
+                  </v-list-item>
+                  <v-list-item two-line>
+                    <v-list-item-content>
+                      <v-list-item-title>Time Active (24 Hours)</v-list-item-title>
+                      <v-list-item-subtitle style="color: cyan">{{ this.currNode.statistics.active24HoursPercentage }}%</v-list-item-subtitle>
+                    </v-list-item-content>
+                  </v-list-item>
+                  <v-list-item two-line>
+                    <v-list-item-content>
+                      <v-list-item-title>Time Active (30 Days)</v-list-item-title>
+                      <v-list-item-subtitle style="color: cyan">{{ this.currNode.statistics.active30DaysPercentage }}%</v-list-item-subtitle>
+                    </v-list-item-content>
+                  </v-list-item>
+                  <v-list-item two-line>
+                    <v-list-item-content>
+                      <v-list-item-title>Time Overloaded (24 Hours)</v-list-item-title>
+                      <v-list-item-subtitle style="color: cyan">{{ this.currNode.statistics.overLoaded24HoursPercentage }}%</v-list-item-subtitle>
+                    </v-list-item-content>
+                  </v-list-item>
+                  <v-list-item two-line>
+                    <v-list-item-content>
+                      <v-list-item-title>Time Overloaded (30 Days)</v-list-item-title>
+                      <v-list-item-subtitle style="color: cyan">{{ this.currNode.statistics.overLoaded30DaysPercentage }}%</v-list-item-subtitle>
+                    </v-list-item-content>
+                  </v-list-item>
+                </v-list>
+              </v-col>
+              <v-col cols="6">
+                <div class="ma-2 pl-2 font-weight-medium">Nodes Trusted</div>
+                <v-list class="trust-list" dense nav>
+                  <v-list-item v-for="node in currNode.quorumArr" v-bind:key="node" v-on:click="setupTween(node)" two-line>
+                    <v-list-item-content>
+                      <v-list-item-title>{{ node.name ? node.name : node.publicKey }}</v-list-item-title>
+                    </v-list-item-content>
+                  </v-list-item>
+                </v-list>
+
+                <div class="ma-2 pt-2 pl-2 font-weight-medium">Trusted By</div>
+                <v-list class="trust-list" dense nav>
+                  <v-list-item v-for="node in currNode.trusted_by" v-bind:key="node.publicKey" v-on:click="setupTween(node)" two-line>
+                    <v-list-item-content>
+                      <v-list-item-title>{{ node.name ? node.name : node.publicKey }}</v-list-item-title>
+                    </v-list-item-content>
+                  </v-list-item>
+                </v-list>
+                
+              </v-col>
+            </v-row>
+
+          </v-card>
+        </v-col>
+        <!-- <v-col v-if="!nodeView" cols="6">
+          Trusted
+          <v-list
+            dense
+            nav
+          >
+            <v-list-item two-line>
+              <v-list-item-content>
+                <v-list-item-title>Country</v-list-item-title>
+                <v-list-item-subtitle>{{this.currNode.geoData.countryName}}</v-list-item-subtitle>
+              </v-list-item-content>
+            </v-list-item>
+
+          </v-list>
+          <v-list>
+            Trusted By
+            <v-list-item two-line>
             <v-list-item-content>
-              <v-row class="align-center" style="text-overflow: ellipsis; max-width:250px;">
-                <v-col cols="2">
-                  <v-btn v-if="nodeView" v-on:click="toggleNodeView()" icon color="cyan">
-                    <v-icon>mdi-chevron-left</v-icon>
-                  </v-btn>
-                </v-col>
-                <v-col cols="10">
-                  <v-list-item-title class="title">
-                    {{ nodeView ? (this.currNode.name ? this.currNode.name : this.currNode.publicKey) : 'Nodes' }}
-                  </v-list-item-title>
-                </v-col>
-              </v-row>
-              <!-- <v-list-item-subtitle>
-                subtext
-              </v-list-item-subtitle> -->
+              <v-list-item-title>Country</v-list-item-title>
+              <v-list-item-subtitle>{{this.currNode.geoData.countryName}}</v-list-item-subtitle>
             </v-list-item-content>
           </v-list-item>
-
-          <v-divider></v-divider>
-
-          <div>
-            <v-list
-              v-if="!nodeView"
-              dense
-              nav
-            >
-              <v-list-item
-                v-for="node in nodes"
-                :key="node.publicKey"
-                link
-                v-on:click="setupTween(node)"
-              >
-                <v-list-item-content>
-                  <v-list-item-title>{{ node.name ? node.name : node.publicKey }}</v-list-item-title>
-                </v-list-item-content>
-              </v-list-item>
-            </v-list>
-
-            <v-list v-if="nodeView">
-              <v-list-item two-line>
-                <v-list-item-content>
-                  <v-list-item-title>Country</v-list-item-title>
-                  <v-list-item-subtitle>{{this.currNode.geoData.countryName}}</v-list-item-subtitle>
-                </v-list-item-content>
-              </v-list-item>
-              <v-list-item two-line>
-                <v-list-item-content>
-                  <v-list-item-title>Status</v-list-item-title>
-                  <v-list-item-subtitle>{{ this.currNode.active ? 'Active' : 'Offline' }}</v-list-item-subtitle>
-                </v-list-item-content>
-              </v-list-item>
-              <v-list-item two-line>
-                <v-list-item-content>
-                  <v-list-item-title>Time Active (24 Hours)</v-list-item-title>
-                  <v-list-item-subtitle>{{ this.currNode.statistics.active24HoursPercentage }}%</v-list-item-subtitle>
-                </v-list-item-content>
-              </v-list-item>
-              <v-list-item two-line>
-                <v-list-item-content>
-                  <v-list-item-title>Time Active (30 Days)</v-list-item-title>
-                  <v-list-item-subtitle>{{ this.currNode.statistics.active30DaysPercentage }}%</v-list-item-subtitle>
-                </v-list-item-content>
-              </v-list-item>
-              <v-list-item two-line>
-                <v-list-item-content>
-                  <v-list-item-title>Time Overloaded (24 Hours)</v-list-item-title>
-                  <v-list-item-subtitle>{{ this.currNode.statistics.overLoaded24HoursPercentage }}%</v-list-item-subtitle>
-                </v-list-item-content>
-              </v-list-item>
-              <v-list-item two-line>
-                <v-list-item-content>
-                  <v-list-item-title>Time Overloaded (30 Days)</v-list-item-title>
-                  <v-list-item-subtitle>{{ this.currNode.statistics.overLoaded30DaysPercentage }}%</v-list-item-subtitle>
-                </v-list-item-content>
-              </v-list-item>
-            </v-list>
-          </div>
-        </v-card>
+          </v-list>
+        </v-col> -->
+      <!-- </v-row> -->
       </v-navigation-drawer>
+      <div id="canvas">
+
+      </div>
   </div>
 </template>
 
 <script type="text/javascript">
+
 import * as THREE from 'three-full';
 import _ from 'underscore';
 // import * as TWEEN from '../webgl/tween.min.js';
 import TWEEN from '@tweenjs/tween.js';
 
+
+//import Loader from '@/components/Loader.vue';
+
 /* eslint no-prototype-builtins: 0 */  // --> OFF
 
 export default {
   name: 'Node',
+  components: {
+   //Loader
+  },
   data: () => ({
+    drawer: true,
     settings: {
       track_point_spacing: 0.04,
       default_track_point_size: 0.025,
@@ -154,6 +239,7 @@ export default {
     lastMove: Date.now(),
     nodeView: false,
     currMode: "Nodes",
+    isMobile: false,
     modes: ["Nodes", /*"Quorum Sets"*/],
     vertexShader: `
     attribute float size;
@@ -197,6 +283,11 @@ export default {
   },
   methods: {
     init: async function() {
+
+      if(window.innerWidth < 768) {
+        this.isMobile = true;
+      }
+
       this.track_point_size = this.settings.default_track_point_size;
       this.track_point_opacity = this.settings.default_track_point_opacity;
       this.track_line_opacity = this.settings.default_track_line_opacity;
@@ -219,15 +310,15 @@ export default {
       this.renderer.setClearColor(0x000000, 1.0);
       this.renderer.setPixelRatio(window.devicePixelRatio);
 
-      if(window.innerWidth <= 1080) {
-        this.renderer.setSize(window.innerWidth - 315, window.innerHeight);
-      } else {
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-      }
+      // if(this.isMobile) {
+      //   this.renderer.setSize(window.innerWidth - 315, window.innerHeight);
+      // } else {
+      this.renderer.setSize((window.innerWidth), window.innerHeight);
+      //}
 
 
       console.log(document.getElementById('app'));
-      document.getElementById('app').appendChild(this.renderer.domElement);
+      document.getElementById('canvas').appendChild(this.renderer.domElement);
 
 
 
@@ -242,7 +333,7 @@ export default {
 
       this.scene = new THREE.Scene();
 
-      this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 100);
+      this.camera = new THREE.PerspectiveCamera(45, (window.innerWidth) / window.innerHeight, 0.01, 100);
       this.camera.position.x = -0.3;
       this.camera.position.y = 0.8;
 
@@ -266,6 +357,14 @@ export default {
       var segments = 64;
 
       this.globe = new THREE.Object3D();
+
+      var reflectionCube = new THREE.CubeTextureLoader()
+      .setPath("assets/quorum_skybox/")
+      .load(["px.png", "nx.png", "py.png", "ny.png", "pz.png", "nz.png"]);
+
+      reflectionCube.format = THREE.RGBFormat;
+
+      this.scene.background = reflectionCube;
 
       var img = new Image();
       img.crossOrigin = "anonymous";
@@ -893,6 +992,10 @@ export default {
       this.toggleIfMobile(true);
       this.zoomToLocation(this.xyz_from_lat_lng(node.geoData.latitude, node.geoData.longitude, 1.3));
       this.nodeView = true;
+      
+      if(this.isMobile) {
+        this.drawer = false;
+      }
     },
     zoomToLocation: function(pos) {
       var position = { x : this.camera.position.x, y: this.camera.position.y, z: this.camera.position.z };
@@ -1067,6 +1170,10 @@ export default {
       this.scene.add(this.track_points_object);
       this.toggleIfMobile(false);
       this.nodeView = false;
+
+      if(this.isMobile) {
+        this.drawer = false;
+      }
     },
     addValidators: function() {
       // var validator_node;
@@ -1333,12 +1440,11 @@ export default {
     }
   },
   onDocumentMouseMove: function( event ) {
-    console.log("mouse moved");
     if (Date.now() - this.lastMove < 31 || !this.nodeView) { // 32 frames a second
         return;
     } else {
       this.lastMove = Date.now();
-      console.log("got here")
+      // console.log("got here")
     }
 
     event.preventDefault();
@@ -1358,9 +1464,9 @@ export default {
       {   
         // restore previous intersection object (if it exists) to its original color
         if ( this.INTERSECTED ) {
-            console.log("intersection")
+            // console.log("intersection")
             pin = this.findNode(this.INTERSECTED.id);
-            console.log("pin found?", pin);
+            // console.log("pin found?", pin);
             if(pin){
                 // set a new color for closest object
                 if(this.cur_node_pin != pin.id){
@@ -1373,6 +1479,8 @@ export default {
 
         // store reference to closest object as current intersection object
         this.INTERSECTED = intersects[ 0 ].object;
+
+        console.log("printing intersected obj", this.INTERSECTED);
 
         // store color of closest object (for later restoration)
 
@@ -1449,3 +1557,53 @@ export default {
 };
 
 </script>
+
+<style>
+  .trust-list {
+    overflow-y: scroll;
+    height: 300px;
+  }
+
+  v-list-item-subtitle {
+    color: cyan !important;
+  }
+
+  .nav-drawer {
+    width: 100%;
+
+    @media only screen and (min-width: 768px) {
+      width: 300px;
+    }
+
+    @media only screen and (min-width: 1200px) {
+      width: 400px;
+    }
+  }
+
+  .app-link {
+    float: left;
+    color: #f2f2f2 !important;
+    text-align: center;
+    padding: 14px 16px;
+    text-decoration: none;
+    font-size: 17px;
+  }
+
+.app-link:hover {
+  background-color: #333;
+  color: white;
+  text-decoration: none !important;
+}
+
+/* Add a color to the active/current link */
+.app-link a.active {
+  background-color: #4CAF50;
+  color: white;
+}
+
+@media only screen and (max-width: 768px) {
+  .app-link {
+    display: none;
+  }
+}
+</style>

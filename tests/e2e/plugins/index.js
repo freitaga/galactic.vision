@@ -12,7 +12,13 @@
 module.exports = (on, config) => {
   // on('file:preprocessor', webpack({
   //  webpackOptions: require('@vue/cli-service/webpack.config'),
-  //  watchOptions: {}
+  //  watchOptions: {},
+  //   test: /\.less$/,
+  //   use: [
+  //     'vue-style-loader',
+  //     'css-loader',
+  //     'less-loader'
+  //   ]
   // }))
 
   return Object.assign({}, config, {
